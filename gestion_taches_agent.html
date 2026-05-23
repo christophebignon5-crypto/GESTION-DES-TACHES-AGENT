@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi des Tâches — Agent Chef | Lycée Léopold Elfort</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================  ÉCRAN  */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:#0D2B5E; --blue:#1A4B8F; --blue-lt:#E8EFF9;
+  --gold:#C5862A; --gold-lt:#FDF3E3;
+  --red:#B53A2A;  --red-lt:#FEF0EE;
+  --green:#2A7A4B; --grn-lt:#EDFAF3;
+  --gray:#6B7280; --bg:#F4F1EC; --surface:#FFF;
+  --border:#DDD8CE; --text:#1A1714; --muted:#6B6560;
+  --font-h:'EB Garamond',Georgia,serif;
+  --font-b:'DM Sans','Segoe UI',Arial,sans-serif;
+  --r:8px; --r-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.05);
+}
+body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; }
+
+/* HEADER compact */
+.app-header {
+  background:var(--navy); color:#fff; padding:0 1.5rem;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:1rem; height:46px; border-bottom:3px solid var(--gold);
+  position:sticky; top:0; z-index:50;
+}
+.app-header-left { display:flex; align-items:center; gap:10px; }
+.app-logo {
+  width:30px; height:30px; border-radius:5px; flex-shrink:0;
+  background:var(--gold); display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-h); font-size:13px; color:var(--navy); font-weight:600;
+}
+.app-school { font-size:10px; opacity:.65; letter-spacing:.04em; text-transform:uppercase; }
+.app-title  { font-family:var(--font-h); font-size:16px; font-weight:500; }
+.header-btns { display:flex; gap:7px; align-items:center; }
+.btn-hdr {
+  display:flex; align-items:center; gap:5px;
+  border:1px solid rgba(255,255,255,.25); border-radius:var(--r);
+  background:rgba(255,255,255,.1); color:#fff;
+  font-family:var(--font-b); font-size:12px; font-weight:500;
+  padding:5px 11px; cursor:pointer; white-space:nowrap; transition:background .15s;
+}
+.btn-hdr:hover { background:rgba(255,255,255,.2); }
+.btn-hdr svg { width:13px; height:13px; }
+.btn-hdr-gold { background:var(--gold); color:var(--navy); border-color:var(--gold); font-weight:600; }
+.btn-hdr-gold:hover { background:#d99530; }
+
+/* STATS */
+.stats-bar {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:10px; padding:.85rem 1.5rem; max-width:1100px; margin:0 auto;
+}
+.stat-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:10px 13px;
+  display:flex; align-items:center; gap:10px;
+}
+.stat-icon { width:34px; height:34px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.stat-icon svg { width:17px; height:17px; }
+.stat-n { font-family:var(--font-h); font-size:22px; font-weight:600; line-height:1; }
+.stat-l { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-top:1px; }
+.si-total { background:var(--blue-lt); color:var(--blue); }
+.si-cours { background:var(--blue-lt); color:var(--blue); }
+.si-urg   { background:var(--red-lt);  color:var(--red); }
+.si-done  { background:var(--grn-lt);  color:var(--green); }
+
+/* MAIN */
+.main { max-width:1100px; margin:0 auto; padding:0 1.5rem 3rem; }
+.section-title {
+  font-family:var(--font-h); font-size:15px; font-weight:500;
+  color:var(--navy); margin-bottom:10px; padding-bottom:7px;
+  border-bottom:1px solid var(--border);
+}
+
+/* TASK CARDS */
+.tasks-list { display:flex; flex-direction:column; gap:8px; }
+.task-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:12px 15px;
+  display:grid; grid-template-columns:1fr auto;
+  gap:10px; align-items:start; transition:box-shadow .15s;
+}
+.task-card:hover { box-shadow:var(--shadow); }
+.task-card.done   { opacity:.52; }
+.task-card.urgent { border-left:4px solid var(--red); padding-left:11px; }
+.task-num  { font-size:10px; color:var(--muted); margin-bottom:2px; font-weight:500; letter-spacing:.04em; }
+.task-desc { font-size:14px; font-weight:500; color:var(--text); margin-bottom:5px; line-height:1.4; }
+.task-meta { display:flex; flex-wrap:wrap; gap:4px 11px; font-size:11px; color:var(--muted); align-items:center; }
+.task-meta span { display:flex; align-items:center; gap:3px; }
+.task-meta svg  { width:12px; height:12px; }
+
+.badge {
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:10px; font-weight:600; padding:2px 8px; border-radius:20px; letter-spacing:.02em;
+}
+.b-cours  { background:var(--blue-lt); color:var(--blue); }
+.b-done   { background:var(--grn-lt);  color:var(--green); }
+.b-urgent { background:var(--red-lt);  color:var(--red); }
+.b-normal { background:#F4F1EC; color:var(--gray); }
+
+.task-actions { display:flex; gap:5px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end; }
+.btn-action {
+  display:flex; align-items:center; gap:4px;
+  border:1px solid var(--border); border-radius:var(--r);
+  background:var(--surface); color:var(--text);
+  font-family:var(--font-b); font-size:11px; font-weight:500;
+  padding:5px 10px; cursor:pointer; white-space:nowrap; transition:all .15s;
+}
+.btn-action:hover { background:var(--bg); }
+.btn-action svg  { width:13px; height:13px; }
+.btn-print { color:var(--navy); border-color:#B5C9E8; background:var(--blue-lt); }
+.btn-print:hover { background:#cdd9ee; }
+.btn-email { color:var(--gold); border-color:#E8D0A0; background:var(--gold-lt); }
+.btn-email:hover { background:#f5e6c8; }
+.btn-edit  { color:#5B4A8A; border-color:#D0C8E8; background:#F2EEF8; }
+.btn-edit:hover  { background:#e4ddf2; }
+.btn-copy  { color:#1A7A6B; border-color:#9ADCCC; background:#EDFAF7; }
+.btn-copy:hover  { background:#cceee8; }
+.btn-done  { color:var(--green); border-color:#9ADCB8; background:var(--grn-lt); }
+.btn-done:hover  { background:#cceedd; }
+.btn-del   { color:var(--red); border-color:#F0BBBB; background:var(--red-lt); }
+.btn-del:hover   { background:#fcc; }
+
+.empty-msg {
+  text-align:center; padding:2.5rem 2rem; color:var(--muted); font-size:14px;
+  border:1.5px dashed var(--border); border-radius:var(--r-lg);
+}
+.empty-msg svg { width:36px; height:36px; margin-bottom:10px; display:block; margin-inline:auto; opacity:.35; }
+
+/* MODAL */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(10,20,50,.55);
+  display:flex; align-items:flex-start; justify-content:center;
+  padding:30px 16px; z-index:100; overflow-y:auto;
+  opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal {
+  background:var(--surface); border-radius:var(--r-lg);
+  width:100%; max-width:500px; padding:20px 22px 18px;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+  transform:translateY(-16px); transition:transform .2s;
+}
+.modal-overlay.open .modal { transform:translateY(0); }
+.modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.modal-head h2 { font-family:var(--font-h); font-size:17px; color:var(--navy); }
+.btn-close { background:none; border:none; cursor:pointer; color:var(--gray); padding:3px; border-radius:4px; }
+.btn-close:hover { background:var(--bg); }
+.btn-close svg { width:18px; height:18px; display:block; }
+.form-field { margin-bottom:12px; }
+.form-field label { display:block; font-size:11px; font-weight:600; color:var(--navy); margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; }
+.form-field input,.form-field select,.form-field textarea {
+  width:100%; font-family:var(--font-b); font-size:13px;
+  border:1px solid var(--border); border-radius:var(--r);
+  padding:7px 10px; background:#FAFAF9; color:var(--text); transition:border-color .15s;
+}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus {
+  outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(26,75,143,.1);
+}
+.form-field textarea { resize:vertical; min-height:70px; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; border-top:1px solid var(--border); padding-top:12px; }
+.btn-cancel { background:none; border:1px solid var(--border); border-radius:var(--r); padding:7px 16px; font-family:var(--font-b); font-size:12px; cursor:pointer; }
+.btn-cancel:hover { background:var(--bg); }
+.btn-submit { background:var(--navy); color:#fff; border:none; border-radius:var(--r); padding:7px 18px; font-family:var(--font-b); font-size:12px; font-weight:600; cursor:pointer; }
+.btn-submit:hover { background:var(--blue); }
+.err-msg { color:var(--red); font-size:11px; margin-top:5px; display:none; }
+
+/* CONFIRM */
+.confirm-overlay {
+  position:fixed; inset:0; background:rgba(10,20,50,.6);
+  display:flex; align-items:center; justify-content:center;
+  z-index:200; opacity:0; pointer-events:none; transition:opacity .15s;
+}
+.confirm-overlay.open { opacity:1; pointer-events:all; }
+.confirm-box {
+  background:var(--surface); border-radius:var(--r-lg);
+  padding:20px 24px; max-width:350px; width:90%;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+.confirm-box h3 { font-family:var(--font-h); font-size:16px; color:var(--navy); margin-bottom:6px; }
+.confirm-box p  { font-size:12px; color:var(--muted); margin-bottom:16px; line-height:1.6; }
+.confirm-btns   { display:flex; gap:8px; justify-content:flex-end; }
+
+/* TOAST */
+.toast {
+  position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(50px);
+  background:var(--navy); color:#fff; padding:9px 18px; border-radius:var(--r-lg);
+  font-size:12px; font-weight:500; z-index:300;
+  transition:transform .3s, opacity .3s; opacity:0; pointer-events:none;
+}
+.toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+/* ============================================================  IMPRESSION A4  */
+@page { size:A4 portrait; margin:10mm 12mm; }
+@media print {
+  .no-print  { display:none !important; }
+  .print-only{ display:block !important; }
+  body { background:#fff; font-family:'DM Sans','Segoe UI',Arial,sans-serif; }
+}
+.print-only { display:none; }
+
+.fiche {
+  font-family:'DM Sans','Segoe UI',Arial,sans-serif;
+  width:100%; color:#000; font-size:9pt; line-height:1.3;
+}
+
+/* En-tête condensé */
+.fiche-entete {
+  display:flex; justify-content:space-between; align-items:stretch;
+  border:1.5px solid #0D2B5E;
+}
+.fiche-entete-left  { padding:6px 11px; border-right:1.5px solid #0D2B5E; min-width:145px; }
+.fiche-logo-text { font-size:6.5pt; text-transform:uppercase; letter-spacing:.05em; color:#666; margin-bottom:1px; }
+.fiche-etab { font-family:'EB Garamond',Georgia,serif; font-size:11.5pt; font-weight:600; color:#0D2B5E; line-height:1.15; }
+.fiche-ville { font-size:7pt; color:#666; margin-top:1px; }
+.fiche-entete-center { flex:1; display:flex; align-items:center; justify-content:center; padding:6px; }
+.fiche-titre {
+  font-family:'EB Garamond',Georgia,serif;
+  font-size:15pt; font-weight:600; color:#0D2B5E;
+  text-transform:uppercase; letter-spacing:.05em; text-align:center; line-height:1;
+}
+.fiche-entete-right {
+  padding:6px 10px; border-left:1.5px solid #0D2B5E;
+  min-width:140px; display:flex; flex-direction:column; gap:3px; justify-content:center;
+}
+.fiche-ref { font-size:7.5pt; }
+.fiche-ref b { color:#0D2B5E; }
+
+/* Bandeau urgent */
+.fiche-urgent-banner {
+  background:#B53A2A; color:#fff; text-align:center; padding:3px;
+  font-size:8.5pt; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  border:1.5px solid #B53A2A; border-top:none; display:none;
+}
+.fiche-urgent-banner.show { display:block; }
+
+/* Sections */
+.fiche-section { border:1.5px solid #0D2B5E; border-top:none; }
+.fiche-section-head {
+  background:#0D2B5E; color:#fff; padding:4px 11px;
+  font-size:8pt; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  display:flex; align-items:center; gap:6px;
+}
+.fiche-section-num {
+  background:#C5862A; color:#0D2B5E; width:16px; height:16px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:8.5pt; font-weight:800;
+}
+.fiche-section-body { padding:8px 12px; }
+
+/* Champs */
+.fiche-row { display:flex; gap:14px; margin-bottom:6px; }
+.fiche-champ { flex:1; }
+.fiche-champ.full { flex:none; width:100%; }
+.fiche-lbl { font-size:6.5pt; text-transform:uppercase; letter-spacing:.06em; color:#555; margin-bottom:2px; font-weight:600; }
+.fiche-val { border-bottom:1.2px solid #333; padding-bottom:2px; font-size:10pt; font-weight:500; min-height:17px; line-height:1.2; word-break:break-word; }
+.fiche-val-desc { border:1.2px solid #333; padding:5px 6px; min-height:34px; font-size:10pt; font-weight:500; line-height:1.3; word-break:break-word; }
+
+/* Checkboxes */
+.fiche-check-group  { margin-bottom:6px; }
+.fiche-check-sub    { font-size:7pt; color:#555; margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.fiche-check-row    { display:flex; align-items:flex-start; gap:7px; margin-bottom:4px; }
+.fiche-check-box    { width:13px; height:13px; border:1.5px solid #333; flex-shrink:0; margin-top:1px; display:inline-block; }
+.fiche-check-label  { font-size:9.5pt; }
+.fiche-blank-line   { display:inline-block; border-bottom:1.2px solid #333; min-width:175px; height:15px; vertical-align:bottom; }
+.fiche-blank-lg     { min-height:24px; border:1.2px solid #333; width:100%; margin-top:3px; padding:2px 5px; }
+
+/* Signatures */
+.fiche-sign-row  { display:flex; gap:14px; margin-top:6px; }
+.fiche-sign-box  { flex:1; }
+.fiche-sign-lbl  { font-size:6.5pt; text-transform:uppercase; letter-spacing:.06em; color:#555; font-weight:600; margin-bottom:4px; }
+.fiche-sign-area { border:1.2px solid #333; height:42px; display:flex; align-items:flex-end; padding:3px 5px; font-size:7.5pt; color:#aaa; }
+
+/* Pied */
+.fiche-footer {
+  border:1.5px solid #0D2B5E; border-top:2.5px solid #C5862A;
+  padding:5px 12px; display:flex; justify-content:space-between; align-items:center;
+}
+.fiche-footer-alert { font-size:8.5pt; font-weight:700; color:#B53A2A; text-transform:uppercase; letter-spacing:.04em; }
+.fiche-footer-inst  { font-size:7pt; color:#666; text-align:right; }
+</style>
+</head>
+<body>
+
+<!-- ========================  APP (ÉCRAN)  ======================== -->
+<div class="no-print">
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="app-header-left">
+      <div class="app-logo">LE</div>
+      <div>
+        <div class="app-school">Lycée Polyvalent — Mana, Guyane Française</div>
+        <div class="app-title">Suivi des tâches — Agent Chef</div>
+      </div>
+    </div>
+    <div class="header-btns">
+      <button class="btn-hdr" onclick="exportData()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exporter
+      </button>
+      <label class="btn-hdr" style="cursor:pointer">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Importer
+        <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+      </label>
+      <button class="btn-hdr btn-hdr-gold" onclick="openModal()">
+        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nouvelle tâche
+      </button>
+    </div>
+  </header>
+
+  <!-- STATS -->
+  <div class="stats-bar" id="stats-bar"></div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="section-title" id="section-label">Tâches enregistrées</div>
+    <div class="tasks-list" id="tasks-list"></div>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="modal-title">Nouvelle tâche</h2>
+        <button class="btn-close" onclick="closeModal()">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="form-field">
+        <label>Description de la tâche *</label>
+        <textarea id="f-desc" placeholder="Décrire clairement ce qui est à faire..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Date de la demande *</label>
+          <input type="date" id="f-date-dem">
+        </div>
+        <div class="form-field">
+          <label>Demandé par *</label>
+          <select id="f-demandeur">
+            <option value="">— Choisir —</option>
+            <option value="Proviseur">Proviseur</option>
+            <option value="Secrétaire Général(e)">Secrétaire Général(e)</option>
+            <option value="Proviseur et Secrétaire Général(e)">Proviseur et Secrétaire Général(e)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Priorité</label>
+        <select id="f-prio">
+          <option value="Normale">Normale</option>
+          <option value="Urgente">⚠ Urgente</option>
+        </select>
+      </div>
+      <p class="err-msg" id="f-err">Veuillez remplir tous les champs obligatoires (*)</p>
+      <div class="form-actions">
+        <button class="btn-cancel" onclick="closeModal()">Annuler</button>
+        <button class="btn-submit" onclick="submitTask()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM TERMINÉE -->
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <h3>Marquer comme terminée</h3>
+      <p>Confirmer que la tâche est réalisée et que le document signé a été retourné à l'administration ?</p>
+      <div class="confirm-btns">
+        <button class="btn-cancel" onclick="closeConfirm()">Annuler</button>
+        <button class="btn-submit" id="confirm-yes-btn">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- ========================  IMPRESSION  ======================== -->
+<div class="print-only" id="print-area"></div>
+
+<script>
+let tasks = JSON.parse(localStorage.getItem('elfort_tasks_v3') || '[]');
+let editId = null, pendingDoneId = null;
+
+function save() { localStorage.setItem('elfort_tasks_v3', JSON.stringify(tasks)); }
+function pad(n) { return String(n).padStart(2,'0'); }
+function todayStr() { const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function fmtDate(s) { if(!s)return'—'; const [y,m,d]=s.split('-'); return d+'/'+m+'/'+y; }
+function fmtDateLong(s) {
+  if(!s)return'—';
+  const [y,m,d]=s.split('-');
+  const M=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  return d+' '+M[parseInt(m,10)-1]+' '+y;
+}
+function nextNum() {
+  const y=new Date().getFullYear();
+  const max=tasks.reduce((acc,t)=>{
+    if(t.num&&t.num.startsWith(y+'-')){const n=parseInt(t.num.split('-')[1],10);return Math.max(acc,n);}
+    return acc;
+  },0);
+  return y+'-'+pad(max+1);
+}
+function showToast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+function renderStats() {
+  const total=tasks.length, cours=tasks.filter(t=>!t.done).length,
+        done=tasks.filter(t=>t.done).length, urg=tasks.filter(t=>!t.done&&t.prio==='Urgente').length;
+  document.getElementById('stats-bar').innerHTML=`
+    <div class="stat-card"><div class="stat-icon si-total">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div><div><div class="stat-n">${total}</div><div class="stat-l">Total</div></div></div>
+    <div class="stat-card"><div class="stat-icon si-cours">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div><div><div class="stat-n" style="color:var(--blue)">${cours}</div><div class="stat-l">En cours</div></div></div>
+    <div class="stat-card"><div class="stat-icon si-urg">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div><div><div class="stat-n" style="color:var(--red)">${urg}</div><div class="stat-l">Urgentes</div></div></div>
+    <div class="stat-card"><div class="stat-icon si-done">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    </div><div><div class="stat-n" style="color:var(--green)">${done}</div><div class="stat-l">Terminées</div></div></div>`;
+}
+
+function renderTasks() {
+  const list=document.getElementById('tasks-list');
+  const active=tasks.filter(t=>!t.done).length;
+  document.getElementById('section-label').textContent=`Tâches enregistrées (${active} en cours / ${tasks.length} total)`;
+  if(!tasks.length){
+    list.innerHTML=`<div class="empty-msg">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      Aucune tâche enregistrée.<br>Cliquez sur <b>+ Nouvelle tâche</b> pour commencer.
+    </div>`; return;
+  }
+  const sorted=[...tasks].sort((a,b)=>{
+    if(a.done!==b.done)return a.done?1:-1;
+    const pa=a.prio==='Urgente'?0:1, pb=b.prio==='Urgente'?0:1;
+    if(pa!==pb)return pa-pb;
+    return new Date(a.dateDem)-new Date(b.dateDem);
+  });
+  list.innerHTML=sorted.map(t=>{
+    const idx=tasks.indexOf(t);
+    const badgeHtml=t.done?'<span class="badge b-done">✓ Terminée</span>':'<span class="badge b-cours">● En cours</span>';
+    const prioHtml=t.prio==='Urgente'?'<span class="badge b-urgent">URGENT</span>':'<span class="badge b-normal">Normale</span>';
+    const doneAct=t.done?'':
+      `<button class="btn-action btn-done" onclick="askDone(${idx})">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Terminée</button>`;
+    return `<div class="task-card ${t.done?'done':''} ${t.prio==='Urgente'&&!t.done?'urgent':''}">
+      <div>
+        <div class="task-num">N° ${t.num}</div>
+        <div class="task-desc">${t.desc}</div>
+        <div class="task-meta">
+          <span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${t.demandeur}</span>
+          <span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Demandée le ${fmtDate(t.dateDem)}</span>
+          ${badgeHtml} ${prioHtml}
+          ${t.doneDate?`<span style="color:var(--green)">Réalisée le ${fmtDate(t.doneDate)}</span>`:''}
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="btn-action btn-print" onclick="printTask(${idx})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimer
+        </button>
+        <button class="btn-action btn-email" onclick="emailTask(${idx})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Envoyer
+        </button>
+        <button class="btn-action btn-edit" onclick="openModal(${idx})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifier
+        </button>
+        <button class="btn-action btn-copy" onclick="duplicateTask(${idx})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Dupliquer
+        </button>
+        ${doneAct}
+        <button class="btn-action btn-del" onclick="deleteTask(${idx})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function render() { renderStats(); renderTasks(); }
+
+function openModal(id) {
+  editId=(id!==undefined)?id:null;
+  if(editId!==null){
+    const t=tasks[editId];
+    document.getElementById('modal-title').textContent='Modifier la tâche';
+    document.getElementById('f-desc').value=t.desc;
+    document.getElementById('f-date-dem').value=t.dateDem;
+    document.getElementById('f-demandeur').value=t.demandeur;
+    document.getElementById('f-prio').value=t.prio;
+  } else {
+    document.getElementById('modal-title').textContent='Nouvelle tâche';
+    document.getElementById('f-desc').value='';
+    document.getElementById('f-date-dem').value=todayStr();
+    document.getElementById('f-demandeur').value='';
+    document.getElementById('f-prio').value='Normale';
+  }
+  document.getElementById('f-err').style.display='none';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+function submitTask() {
+  const desc=document.getElementById('f-desc').value.trim();
+  const dateDem=document.getElementById('f-date-dem').value;
+  const demandeur=document.getElementById('f-demandeur').value;
+  const prio=document.getElementById('f-prio').value;
+  const err=document.getElementById('f-err');
+  if(!desc||!dateDem||!demandeur){err.style.display='block';return;}
+  err.style.display='none';
+  if(editId!==null){
+    Object.assign(tasks[editId],{desc,dateDem,demandeur,prio});
+    showToast('Tâche modifiée');
+  } else {
+    tasks.push({num:nextNum(),desc,dateDem,demandeur,prio,done:false,doneDate:null});
+    showToast('Tâche ajoutée — N° '+tasks[tasks.length-1].num);
+  }
+  save(); render(); closeModal();
+}
+
+function duplicateTask(idx) {
+  const t=tasks[idx];
+  const newTask={num:nextNum(),desc:t.desc,dateDem:todayStr(),demandeur:t.demandeur,prio:t.prio,done:false,doneDate:null};
+  tasks.push(newTask);
+  save(); render();
+  showToast('Tâche dupliquée → N° '+newTask.num);
+}
+
+function askDone(idx) {
+  pendingDoneId=idx;
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-yes-btn').onclick=()=>confirmDone();
+}
+function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); }
+function confirmDone() {
+  tasks[pendingDoneId].done=true; tasks[pendingDoneId].doneDate=todayStr();
+  save(); render(); closeConfirm(); showToast('Tâche terminée ✓');
+}
+
+function deleteTask(idx) {
+  if(!confirm('Supprimer définitivement cette tâche ?'))return;
+  tasks.splice(idx,1); save(); render(); showToast('Tâche supprimée');
+}
+
+/* EXPORT */
+function exportData() {
+  const d=new Date();
+  const fname=`taches_elfort_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  const blob=new Blob([JSON.stringify({version:3,exportDate:todayStr(),tasks},null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=fname; a.click();
+  showToast('Sauvegarde exportée : '+fname);
+}
+
+/* IMPORT */
+function importData(e) {
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try {
+      const data=JSON.parse(ev.target.result);
+      const imported=Array.isArray(data)?data:(data.tasks||[]);
+      if(!imported.length){alert('Fichier vide ou format incorrect.');return;}
+      const replace=confirm(
+        `Fichier chargé : ${imported.length} tâche(s).\n\n`+
+        `OK  →  REMPLACER toutes les tâches actuelles\n`+
+        `Annuler  →  AJOUTER à la liste existante`
+      );
+      if(replace){
+        tasks=imported;
+      } else {
+        imported.forEach(t=>{t.num=nextNum();tasks.push(t);});
+      }
+      save(); render(); showToast(imported.length+' tâche(s) importée(s)');
+    } catch(err){ alert('Fichier invalide. Vérifiez qu\'il s\'agit d\'une sauvegarde exportée depuis cette application.'); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+/* ---- CONSTRUCTION DE LA FICHE HTML (partagée) ---- */
+function buildFicheHTML(idx) {
+  const t=tasks[idx];
+  document.getElementById('print-area').innerHTML=`
+<div class="fiche">
+  <div class="fiche-entete">
+    <div class="fiche-entete-left">
+      <div class="fiche-logo-text">République Française<br>Académie de Guyane</div>
+      <div class="fiche-etab">Lycée Léopold Elfort</div>
+      <div class="fiche-ville">Mana — Guyane Française</div>
+    </div>
+    <div class="fiche-entete-center">
+      <div class="fiche-titre">Fiche de tâche<br>à réaliser</div>
+    </div>
+    <div class="fiche-entete-right">
+      <div class="fiche-ref"><b>N° tâche :</b> ${t.num}</div>
+      <div class="fiche-ref"><b>Émise le :</b> ${fmtDateLong(t.dateDem)}</div>
+      <div class="fiche-ref"><b>Demandé par :</b> ${t.demandeur}</div>
+      <div class="fiche-ref"><b>Priorité :</b> <span style="${t.prio==='Urgente'?'color:#B53A2A;font-weight:700':''}">${t.prio}</span></div>
+    </div>
+  </div>
+  <div class="fiche-urgent-banner ${t.prio==='Urgente'?'show':''}">⚠ TÂCHE URGENTE — TRAITEMENT PRIORITAIRE ⚠</div>
+  <div class="fiche-section">
+    <div class="fiche-section-head"><span class="fiche-section-num">1</span>Tâche assignée — complétée par l'administration</div>
+    <div class="fiche-section-body">
+      <div class="fiche-row"><div class="fiche-champ full">
+        <div class="fiche-lbl">Description de la tâche</div>
+        <div class="fiche-val-desc">${t.desc}</div>
+      </div></div>
+    </div>
+  </div>
+  <div class="fiche-section">
+    <div class="fiche-section-head"><span class="fiche-section-num">2</span>Organisation mise en place — à compléter par l'agent</div>
+    <div class="fiche-section-body">
+      <div class="fiche-check-group">
+        <div class="fiche-check-sub">Qui réalise cette tâche ?</div>
+        <div class="fiche-check-row"><span class="fiche-check-box"></span><span class="fiche-check-label">Je réalise moi-même</span></div>
+        <div class="fiche-check-row"><span class="fiche-check-box"></span><span class="fiche-check-label">Je confie à un(e) collègue&nbsp;:&nbsp;<span class="fiche-blank-line"></span></span></div>
+        <div class="fiche-check-row"><span class="fiche-check-box"></span><span class="fiche-check-label">En équipe (préciser)&nbsp;:&nbsp;<span class="fiche-blank-line"></span></span></div>
+      </div>
+      <div><div class="fiche-lbl">Moyens prévus / organisation mise en place</div><div class="fiche-blank-lg"></div></div>
+      <div class="fiche-row" style="margin-top:7px">
+        <div class="fiche-champ"><div class="fiche-lbl">Date prévue de réalisation</div><div class="fiche-val"></div></div>
+        <div class="fiche-champ"><div class="fiche-lbl">Visa de l'agent (prise de connaissance)</div><div class="fiche-val"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="fiche-section">
+    <div class="fiche-section-head"><span class="fiche-section-num">3</span>Retour à l'administration — à compléter et signer quand la tâche est terminée</div>
+    <div class="fiche-section-body">
+      <div class="fiche-row">
+        <div class="fiche-champ"><div class="fiche-lbl">Date effective de réalisation</div><div class="fiche-val"></div></div>
+        <div class="fiche-champ"><div class="fiche-lbl">Tâche réalisée par</div><div class="fiche-val"></div></div>
+      </div>
+      <div style="margin-top:6px"><div class="fiche-lbl">Observations / difficultés rencontrées</div><div class="fiche-blank-lg" style="min-height:22px"></div></div>
+      <div class="fiche-sign-row">
+        <div class="fiche-sign-box"><div class="fiche-sign-lbl">Signature de l'agent chef</div><div class="fiche-sign-area">Nom &amp; signature :</div></div>
+        <div class="fiche-sign-box"><div class="fiche-sign-lbl">Visa du Proviseur ou de la SG</div><div class="fiche-sign-area">Visa de réception :</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="fiche-footer">
+    <div class="fiche-footer-alert">⚠ Ce document doit être retourné signé à l'administration</div>
+    <div class="fiche-footer-inst">Lycée Léopold Elfort — Mana, Guyane<br>Conserver un exemplaire</div>
+  </div>
+</div>`;
+}
+
+/* PRINT */
+function printTask(idx) {
+  buildFicheHTML(idx);
+  window.print();
+}
+
+/* ---- CHARGEMENT DYNAMIQUE DES LIBRAIRIES PDF ---- */
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('Impossible de charger : ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+/* EMAIL — génère le PDF puis ouvre la messagerie */
+async function emailTask(idx) {
+  const t = tasks[idx];
+  const toast = document.getElementById('toast');
+
+  // Affichage d'un toast de progression
+  toast.textContent = '⏳ Génération du PDF en cours…';
+  toast.classList.add('show');
+
+  try {
+    // Chargement lazzy des librairies (une seule fois)
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  } catch(e) {
+    toast.classList.remove('show');
+    alert('Impossible de charger les librairies PDF.\nVérifiez votre connexion internet et réessayez.');
+    return;
+  }
+
+  // Construction de la fiche dans le print-area
+  buildFicheHTML(idx);
+  const printArea = document.getElementById('print-area');
+
+  // Rendu hors-écran mais visible pour html2canvas (A4 = 794px à 96dpi)
+  const prev = printArea.getAttribute('style') || '';
+  printArea.style.cssText = 'display:block !important; position:fixed; top:0; left:-9999px; width:794px; background:#fff; padding:10mm 12mm;';
+
+  // Petite pause pour laisser le navigateur finaliser le rendu
+  await new Promise(r => setTimeout(r, 200));
+
+  try {
+    const canvas = await html2canvas(printArea, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: 794,
+      windowWidth: 794
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pW = 210, pH = 297;
+    const imgW = pW;
+    const imgH = Math.min((canvas.height * pW) / canvas.width, pH);
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', 0, 0, imgW, imgH);
+
+    const fname = `fiche_tache_${t.num.replace('-','_')}_${todayStr().replace(/-/g,'')}.pdf`;
+    pdf.save(fname);
+
+    // Corps du courriel simple
+    const subject = encodeURIComponent(`Nouvelle tâche à réaliser — N° ${t.num}`);
+    const body = encodeURIComponent(
+`Bonjour,
+
+Une nouvelle tâche vous a été assignée (N° ${t.num}).
+
+Vous trouverez en pièce jointe la fiche détaillée à compléter et à retourner signée à l'administration une fois la tâche terminée.
+
+Cordialement,
+L'administration
+Lycée Polyvalent Léopold Elfort — Mana`);
+
+    // Légère pause pour que le téléchargement PDF démarre avant la redirection mailto
+    await new Promise(r => setTimeout(r, 600));
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+
+    showToast('✓ PDF téléchargé — joignez-le à votre courriel');
+
+  } catch(err) {
+    console.error(err);
+    showToast('Erreur lors de la génération du PDF');
+  } finally {
+    // Remise en état du print-area
+    printArea.setAttribute('style', prev);
+  }
+}
+
+document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+document.getElementById('confirm-overlay').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
+render();
+</script>
+</body>
+</html>
