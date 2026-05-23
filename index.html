@@ -535,7 +535,7 @@ function setSyncStatus(status) {
   const dot = document.getElementById('sync-dot');
   const lbl = document.getElementById('sync-label');
   dot.className = 'sync-dot';
-  if (status === 'ok')      { dot.classList.add(''); lbl.textContent = 'Synchronisé'; }
+  if (status === 'ok')      { lbl.textContent = 'Synchronisé'; }
   else if (status === 'offline') { dot.classList.add('offline'); lbl.textContent = 'Hors ligne'; }
   else { dot.classList.add('loading'); lbl.textContent = 'Connexion…'; }
 }
