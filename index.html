@@ -6,6 +6,11 @@
 <title>Suivi des Tâches — Agent Chef | Lycée Léopold Elfort</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 <style>
 /* ============================================================  ÉCRAN  */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -50,6 +55,33 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .btn-hdr svg { width:13px; height:13px; }
 .btn-hdr-gold { background:var(--gold); color:var(--navy); border-color:var(--gold); font-weight:600; }
 .btn-hdr-gold:hover { background:#d99530; }
+
+/* USER PILL */
+.user-pill {
+  display:none; align-items:center; gap:6px;
+  background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2);
+  border-radius:20px; padding:3px 11px 3px 5px;
+  font-size:11px; color:#fff; cursor:pointer; transition:background .15s;
+}
+.user-pill:hover { background:rgba(255,255,255,.22); }
+.user-avatar {
+  width:22px; height:22px; border-radius:50%; flex-shrink:0;
+  background:var(--gold); color:var(--navy);
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; font-family:var(--font-h);
+}
+
+/* SYNC DOT */
+.sync-dot {
+  width:7px; height:7px; border-radius:50%; background:#4ade80; flex-shrink:0;
+  box-shadow:0 0 0 0 rgba(74,222,128,.5);
+  animation:pulse-green 2s infinite;
+}
+.sync-dot.offline { background:#f87171; animation:pulse-red 2s infinite; }
+.sync-dot.loading { background:#fbbf24; animation:pulse-yellow 1.2s infinite; }
+@keyframes pulse-green  { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.5)} 70%{box-shadow:0 0 0 5px rgba(74,222,128,0)} }
+@keyframes pulse-red    { 0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.5)} 70%{box-shadow:0 0 0 5px rgba(248,113,113,0)} }
+@keyframes pulse-yellow { 0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.5)}  70%{box-shadow:0 0 0 5px rgba(251,191,36,0)} }
 
 /* STATS */
 .stats-bar {
@@ -103,6 +135,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .b-done   { background:var(--grn-lt);  color:var(--green); }
 .b-urgent { background:var(--red-lt);  color:var(--red); }
 .b-normal { background:#F4F1EC; color:var(--gray); }
+.b-you    { background:#EEF2FF; color:#4338CA; }
 
 .task-actions { display:flex; gap:5px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end; }
 .btn-action {
@@ -132,6 +165,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
   border:1.5px dashed var(--border); border-radius:var(--r-lg);
 }
 .empty-msg svg { width:36px; height:36px; margin-bottom:10px; display:block; margin-inline:auto; opacity:.35; }
+.empty-msg code { font-size:11px; background:rgba(0,0,0,.06); padding:1px 5px; border-radius:3px; }
 
 /* MODAL */
 .modal-overlay {
@@ -171,6 +205,9 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .btn-submit { background:var(--navy); color:#fff; border:none; border-radius:var(--r); padding:7px 18px; font-family:var(--font-b); font-size:12px; font-weight:600; cursor:pointer; }
 .btn-submit:hover { background:var(--blue); }
 .err-msg { color:var(--red); font-size:11px; margin-top:5px; display:none; }
+
+/* USER MODAL intro text */
+.modal-intro { font-size:13px; color:var(--muted); margin-bottom:16px; line-height:1.6; }
 
 /* CONFIRM */
 .confirm-overlay {
@@ -301,6 +338,16 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       </div>
     </div>
     <div class="header-btns">
+      <!-- Indicateur de connexion -->
+      <div style="display:flex;align-items:center;gap:5px;opacity:.75;font-size:11px;color:#fff">
+        <div class="sync-dot loading" id="sync-dot"></div>
+        <span id="sync-label">Connexion…</span>
+      </div>
+      <!-- Utilisateur connecté -->
+      <button class="user-pill" id="user-pill" onclick="changeUser()">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span id="user-name-display">—</span>
+      </button>
       <button class="btn-hdr" onclick="exportData()">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exporter
@@ -322,11 +369,11 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 
   <!-- MAIN -->
   <div class="main">
-    <div class="section-title" id="section-label">Tâches enregistrées</div>
+    <div class="section-title" id="section-label">Chargement…</div>
     <div class="tasks-list" id="tasks-list"></div>
   </div>
 
-  <!-- MODAL -->
+  <!-- MODAL TÂCHE -->
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal">
       <div class="modal-head">
@@ -369,6 +416,28 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
     </div>
   </div>
 
+  <!-- MODAL UTILISATEUR -->
+  <div class="modal-overlay open" id="user-modal-overlay">
+    <div class="modal" style="max-width:400px;margin-top:60px">
+      <div class="modal-head">
+        <h2>Bienvenue</h2>
+      </div>
+      <p class="modal-intro">
+        Cette application est partagée entre les personnels de Direction.<br>
+        Saisissez votre Nom pour vous identifier — toutes les fiches seront visibles par l'équipe.
+      </p>
+      <div class="form-field">
+        <label>Votre Nom *</label>
+        <input type="text" id="u-name" placeholder="Ex : Dupont, Martin…" maxlength="30"
+               onkeydown="if(event.key==='Enter')saveUser()">
+      </div>
+      <p class="err-msg" id="u-err">Veuillez saisir votre prénom.</p>
+      <div class="form-actions">
+        <button class="btn-submit" onclick="saveUser()">Continuer →</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CONFIRM TERMINÉE -->
   <div class="confirm-overlay" id="confirm-overlay">
     <div class="confirm-box">
@@ -388,10 +457,57 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 <div class="print-only" id="print-area"></div>
 
 <script>
-let tasks = JSON.parse(localStorage.getItem('elfort_tasks_v3') || '[]');
-let editId = null, pendingDoneId = null;
+/* ============================================================
+   CONFIGURATION FIREBASE
+   ─────────────────────────────────────────────────────────────
+   Pour mettre cette application en ligne (GitHub Pages, etc.) :
 
-function save() { localStorage.setItem('elfort_tasks_v3', JSON.stringify(tasks)); }
+   1. Rendez-vous sur https://console.firebase.google.com
+   2. Créez un nouveau projet (ex : "taches-elfort")
+   3. Dans le projet → Paramètres (⚙) → Vos applications → icône </>
+      Enregistrez une application Web, copiez l'objet firebaseConfig
+   4. Dans Firestore Database :
+      a. Cliquez "Créer une base de données" → mode Production
+      b. Choisissez la région europe-west1 (Belgique)
+      c. Une fois créée, allez dans l'onglet "Règles" et collez :
+
+         rules_version = '2';
+         service cloud.firestore {
+           match /databases/{database}/documents {
+             match /tasks/{document} {
+               allow read, write: if true;
+             }
+           }
+         }
+
+      d. Cliquez "Publier"
+   5. Remplacez les valeurs REMPLACER_ICI ci-dessous par vos vraies valeurs
+   ============================================================ */
+const firebaseConfig = {
+  apiKey:            "AIzaSyAfD4K1dZnM8ILWlwQkXcR0TOY8aedN_9U",
+  authDomain:        "fiche-tache-des-agents.firebaseapp.com",
+  projectId:         "fiche-tache-des-agents",
+  storageBucket:     "fiche-tache-des-agents.firebasestorage.app",
+  messagingSenderId: "1077971730321",
+  appId:             "1:1077971730321:web:4a74e4e59d0aad1b82a430",
+  measurementId:     "G-FNWQN2M90C"
+};
+// ============================================================
+
+const CONFIG_OK = Object.values(firebaseConfig).every(v => v !== "REMPLACER_ICI" && v !== "");
+
+let db, tasksRef;
+if (CONFIG_OK) {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  tasksRef = db.collection('tasks');
+}
+
+let tasks = null;          // null = chargement, {} = chargé (clé = ID Firestore)
+let editId = null, pendingDoneId = null;
+let currentUser = localStorage.getItem('elfort_user_v4') || null;
+
+/* ─── Utilitaires ─────────────────────────────────────────── */
 function pad(n) { return String(n).padStart(2,'0'); }
 function todayStr() { const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 function fmtDate(s) { if(!s)return'—'; const [y,m,d]=s.split('-'); return d+'/'+m+'/'+y; }
@@ -403,7 +519,8 @@ function fmtDateLong(s) {
 }
 function nextNum() {
   const y=new Date().getFullYear();
-  const max=tasks.reduce((acc,t)=>{
+  const vals = tasks ? Object.values(tasks) : [];
+  const max=vals.reduce((acc,t)=>{
     if(t.num&&t.num.startsWith(y+'-')){const n=parseInt(t.num.split('-')[1],10);return Math.max(acc,n);}
     return acc;
   },0);
@@ -414,10 +531,96 @@ function showToast(msg) {
   el.textContent=msg; el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),2500);
 }
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot';
+  if (status === 'ok')      { dot.classList.add(''); lbl.textContent = 'Synchronisé'; }
+  else if (status === 'offline') { dot.classList.add('offline'); lbl.textContent = 'Hors ligne'; }
+  else { dot.classList.add('loading'); lbl.textContent = 'Connexion…'; }
+}
 
+/* ─── Affichage utilisateur ───────────────────────────────── */
+function updateUserDisplay() {
+  const pill    = document.getElementById('user-pill');
+  const nameEl  = document.getElementById('user-name-display');
+  const avatarEl= document.getElementById('user-avatar');
+  if (currentUser) {
+    nameEl.textContent  = currentUser;
+    avatarEl.textContent= currentUser.charAt(0).toUpperCase();
+    pill.style.display  = 'flex';
+  } else {
+    pill.style.display = 'none';
+  }
+}
+
+/* ─── Modal utilisateur ───────────────────────────────────── */
+function openUserModal() {
+  document.getElementById('user-modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('u-name').focus(), 250);
+}
+function saveUser() {
+  const name = document.getElementById('u-name').value.trim();
+  if (!name) { document.getElementById('u-err').style.display='block'; return; }
+  currentUser = name;
+  localStorage.setItem('elfort_user_v4', name);
+  document.getElementById('user-modal-overlay').classList.remove('open');
+  updateUserDisplay();
+  if (!CONFIG_OK) { showConfigError(); return; }
+  startSync();
+}
+function changeUser() {
+  const newName = prompt('Modifier votre Nom :', currentUser || '');
+  if (newName && newName.trim()) {
+    currentUser = newName.trim();
+    localStorage.setItem('elfort_user_v4', currentUser);
+    updateUserDisplay();
+    showToast('Prénom mis à jour : ' + currentUser);
+    render();
+  }
+}
+
+/* ─── Erreur de configuration ─────────────────────────────── */
+function showConfigError() {
+  setSyncStatus('offline');
+  tasks = {};
+  renderStats();
+  document.getElementById('section-label').textContent = 'Configuration requise';
+  document.getElementById('tasks-list').innerHTML = `
+    <div class="empty-msg" style="border-color:#F0BBBB;background:var(--red-lt);color:var(--text)">
+      <svg fill="none" stroke="#B53A2A" stroke-width="1.5" viewBox="0 0 24 24" style="opacity:1">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <b style="color:var(--red)">Configuration Firebase manquante</b><br><br>
+      Ouvrez le fichier HTML dans un éditeur de texte et remplacez<br>
+      les valeurs <code>REMPLACER_ICI</code> par vos identifiants Firebase.<br><br>
+      <span style="font-size:11px;color:var(--muted)">Les instructions de configuration se trouvent dans le bloc &lt;script&gt; du fichier.</span>
+    </div>`;
+}
+
+/* ─── Synchronisation Firestore ───────────────────────────── */
+function startSync() {
+  if (!CONFIG_OK || !tasksRef) { showConfigError(); return; }
+  setSyncStatus('loading');
+  tasksRef.orderBy('createdAt', 'asc').onSnapshot(snapshot => {
+    tasks = {};
+    snapshot.forEach(doc => { tasks[doc.id] = { id: doc.id, ...doc.data() }; });
+    setSyncStatus('ok');
+    render();
+  }, err => {
+    console.error('Firestore:', err);
+    setSyncStatus('offline');
+    showToast('Erreur de connexion — vérifiez votre accès internet');
+    if (tasks === null) { tasks = {}; render(); }
+  });
+}
+
+/* ─── Rendu statistiques ──────────────────────────────────── */
 function renderStats() {
-  const total=tasks.length, cours=tasks.filter(t=>!t.done).length,
-        done=tasks.filter(t=>t.done).length, urg=tasks.filter(t=>!t.done&&t.prio==='Urgente').length;
+  const vals = tasks ? Object.values(tasks) : [];
+  const total=vals.length, cours=vals.filter(t=>!t.done).length,
+        done=vals.filter(t=>t.done).length, urg=vals.filter(t=>!t.done&&t.prio==='Urgente').length;
   document.getElementById('stats-bar').innerHTML=`
     <div class="stat-card"><div class="stat-icon si-total">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -433,142 +636,202 @@ function renderStats() {
     </div><div><div class="stat-n" style="color:var(--green)">${done}</div><div class="stat-l">Terminées</div></div></div>`;
 }
 
+/* ─── Rendu liste des tâches ──────────────────────────────── */
 function renderTasks() {
-  const list=document.getElementById('tasks-list');
-  const active=tasks.filter(t=>!t.done).length;
-  document.getElementById('section-label').textContent=`Tâches enregistrées (${active} en cours / ${tasks.length} total)`;
-  if(!tasks.length){
+  const list = document.getElementById('tasks-list');
+  if (tasks === null) {
+    document.getElementById('section-label').textContent = 'Chargement…';
+    list.innerHTML = `<div class="empty-msg">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Connexion à la base de données partagée…
+    </div>`; return;
+  }
+  const vals = Object.values(tasks);
+  const active = vals.filter(t=>!t.done).length;
+  document.getElementById('section-label').textContent =
+    `Tâches enregistrées (${active} en cours / ${vals.length} total)`;
+  if (!vals.length) {
     list.innerHTML=`<div class="empty-msg">
       <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
       Aucune tâche enregistrée.<br>Cliquez sur <b>+ Nouvelle tâche</b> pour commencer.
     </div>`; return;
   }
-  const sorted=[...tasks].sort((a,b)=>{
-    if(a.done!==b.done)return a.done?1:-1;
+  const sorted=[...vals].sort((a,b)=>{
+    if(a.done!==b.done) return a.done?1:-1;
     const pa=a.prio==='Urgente'?0:1, pb=b.prio==='Urgente'?0:1;
-    if(pa!==pb)return pa-pb;
+    if(pa!==pb) return pa-pb;
     return new Date(a.dateDem)-new Date(b.dateDem);
   });
   list.innerHTML=sorted.map(t=>{
-    const idx=tasks.indexOf(t);
-    const badgeHtml=t.done?'<span class="badge b-done">✓ Terminée</span>':'<span class="badge b-cours">● En cours</span>';
-    const prioHtml=t.prio==='Urgente'?'<span class="badge b-urgent">URGENT</span>':'<span class="badge b-normal">Normale</span>';
-    const doneAct=t.done?'':
-      `<button class="btn-action btn-done" onclick="askDone(${idx})">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Terminée</button>`;
+    const id = t.id;
+    const isOwn = !t.createdBy || t.createdBy === currentUser;
+    const creatorLabel = !t.createdBy
+      ? '—'
+      : t.createdBy === currentUser
+        ? '<span class="badge b-you" style="padding:1px 6px;font-size:10px">Vous</span>'
+        : escHtml(t.createdBy);
+    const badgeHtml = t.done
+      ? '<span class="badge b-done">✓ Terminée</span>'
+      : '<span class="badge b-cours">● En cours</span>';
+    const prioHtml = t.prio==='Urgente'
+      ? '<span class="badge b-urgent">URGENT</span>'
+      : '<span class="badge b-normal">Normale</span>';
+    const doneAct = t.done ? '' :
+      `<button class="btn-action btn-done" onclick="askDone('${id}')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Terminée
+      </button>`;
+    const editAct = isOwn
+      ? `<button class="btn-action btn-edit" onclick="openModal('${id}')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifier
+        </button>` : '';
+    const delAct = isOwn
+      ? `<button class="btn-action btn-del" onclick="deleteTask('${id}')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>` : '';
     return `<div class="task-card ${t.done?'done':''} ${t.prio==='Urgente'&&!t.done?'urgent':''}">
       <div>
-        <div class="task-num">N° ${t.num}</div>
-        <div class="task-desc">${t.desc}</div>
+        <div class="task-num">N° ${escHtml(t.num)}</div>
+        <div class="task-desc">${escHtml(t.desc)}</div>
         <div class="task-meta">
-          <span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${t.demandeur}</span>
-          <span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Demandée le ${fmtDate(t.dateDem)}</span>
+          <span>
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            ${escHtml(t.demandeur)}
+          </span>
+          <span>
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Demandée le ${fmtDate(t.dateDem)}
+          </span>
+          <span>
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+            Créée par ${creatorLabel}
+          </span>
           ${badgeHtml} ${prioHtml}
           ${t.doneDate?`<span style="color:var(--green)">Réalisée le ${fmtDate(t.doneDate)}</span>`:''}
         </div>
       </div>
       <div class="task-actions">
-        <button class="btn-action btn-print" onclick="printTask(${idx})">
+        <button class="btn-action btn-print" onclick="printTask('${id}')">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimer
         </button>
-        <button class="btn-action btn-email" onclick="emailTask(${idx})">
+        <button class="btn-action btn-email" onclick="emailTask('${id}')">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Envoyer
         </button>
-        <button class="btn-action btn-edit" onclick="openModal(${idx})">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifier
-        </button>
-        <button class="btn-action btn-copy" onclick="duplicateTask(${idx})">
+        ${editAct}
+        <button class="btn-action btn-copy" onclick="duplicateTask('${id}')">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Dupliquer
         </button>
         ${doneAct}
-        <button class="btn-action btn-del" onclick="deleteTask(${idx})">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-        </button>
+        ${delAct}
       </div>
     </div>`;
   }).join('');
 }
 
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function render() { renderStats(); renderTasks(); }
 
+/* ─── Modale tâche ────────────────────────────────────────── */
 function openModal(id) {
-  editId=(id!==undefined)?id:null;
-  if(editId!==null){
-    const t=tasks[editId];
-    document.getElementById('modal-title').textContent='Modifier la tâche';
-    document.getElementById('f-desc').value=t.desc;
-    document.getElementById('f-date-dem').value=t.dateDem;
-    document.getElementById('f-demandeur').value=t.demandeur;
-    document.getElementById('f-prio').value=t.prio;
+  if (tasks === null) { showToast('Chargement en cours, veuillez patienter…'); return; }
+  editId = (id !== undefined) ? id : null;
+  if (editId !== null) {
+    const t = tasks[editId];
+    if (!t) return;
+    document.getElementById('modal-title').textContent = 'Modifier la tâche';
+    document.getElementById('f-desc').value    = t.desc;
+    document.getElementById('f-date-dem').value= t.dateDem;
+    document.getElementById('f-demandeur').value= t.demandeur;
+    document.getElementById('f-prio').value    = t.prio;
   } else {
-    document.getElementById('modal-title').textContent='Nouvelle tâche';
-    document.getElementById('f-desc').value='';
-    document.getElementById('f-date-dem').value=todayStr();
-    document.getElementById('f-demandeur').value='';
-    document.getElementById('f-prio').value='Normale';
+    document.getElementById('modal-title').textContent = 'Nouvelle tâche';
+    document.getElementById('f-desc').value    = '';
+    document.getElementById('f-date-dem').value= todayStr();
+    document.getElementById('f-demandeur').value= '';
+    document.getElementById('f-prio').value    = 'Normale';
   }
   document.getElementById('f-err').style.display='none';
   document.getElementById('modal-overlay').classList.add('open');
 }
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
 
-function submitTask() {
-  const desc=document.getElementById('f-desc').value.trim();
-  const dateDem=document.getElementById('f-date-dem').value;
-  const demandeur=document.getElementById('f-demandeur').value;
-  const prio=document.getElementById('f-prio').value;
-  const err=document.getElementById('f-err');
-  if(!desc||!dateDem||!demandeur){err.style.display='block';return;}
+async function submitTask() {
+  const desc      = document.getElementById('f-desc').value.trim();
+  const dateDem   = document.getElementById('f-date-dem').value;
+  const demandeur = document.getElementById('f-demandeur').value;
+  const prio      = document.getElementById('f-prio').value;
+  const err       = document.getElementById('f-err');
+  if (!desc||!dateDem||!demandeur) { err.style.display='block'; return; }
   err.style.display='none';
-  if(editId!==null){
-    Object.assign(tasks[editId],{desc,dateDem,demandeur,prio});
-    showToast('Tâche modifiée');
-  } else {
-    tasks.push({num:nextNum(),desc,dateDem,demandeur,prio,done:false,doneDate:null});
-    showToast('Tâche ajoutée — N° '+tasks[tasks.length-1].num);
+  try {
+    if (editId !== null) {
+      await tasksRef.doc(editId).update({ desc, dateDem, demandeur, prio });
+      showToast('Tâche modifiée');
+    } else {
+      const num = nextNum();
+      await tasksRef.add({
+        num, desc, dateDem, demandeur, prio,
+        done: false, doneDate: null,
+        createdBy: currentUser,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      showToast('Tâche ajoutée — N° ' + num);
+    }
+    closeModal();
+  } catch(e) {
+    console.error(e);
+    err.textContent = 'Erreur lors de la sauvegarde. Vérifiez votre connexion.';
+    err.style.display = 'block';
   }
-  save(); render(); closeModal();
 }
 
-function duplicateTask(idx) {
-  const t=tasks[idx];
-  const newTask={num:nextNum(),desc:t.desc,dateDem:todayStr(),demandeur:t.demandeur,prio:t.prio,done:false,doneDate:null};
-  tasks.push(newTask);
-  save(); render();
-  showToast('Tâche dupliquée → N° '+newTask.num);
+function duplicateTask(id) {
+  const t = tasks[id]; if (!t) return;
+  const num = nextNum();
+  tasksRef.add({
+    num, desc:t.desc, dateDem:todayStr(), demandeur:t.demandeur, prio:t.prio,
+    done:false, doneDate:null,
+    createdBy: currentUser,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  showToast('Tâche dupliquée → N° ' + num);
 }
 
-function askDone(idx) {
-  pendingDoneId=idx;
+function askDone(id) {
+  pendingDoneId = id;
   document.getElementById('confirm-overlay').classList.add('open');
-  document.getElementById('confirm-yes-btn').onclick=()=>confirmDone();
+  document.getElementById('confirm-yes-btn').onclick = ()=>confirmDone();
 }
 function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); }
 function confirmDone() {
-  tasks[pendingDoneId].done=true; tasks[pendingDoneId].doneDate=todayStr();
-  save(); render(); closeConfirm(); showToast('Tâche terminée ✓');
+  tasksRef.doc(pendingDoneId).update({ done:true, doneDate:todayStr() });
+  closeConfirm(); showToast('Tâche terminée ✓');
 }
 
-function deleteTask(idx) {
-  if(!confirm('Supprimer définitivement cette tâche ?'))return;
-  tasks.splice(idx,1); save(); render(); showToast('Tâche supprimée');
+function deleteTask(id) {
+  if (!confirm('Supprimer définitivement cette tâche ?')) return;
+  tasksRef.doc(id).delete();
+  showToast('Tâche supprimée');
 }
 
-/* EXPORT */
+/* ─── Export / Import ─────────────────────────────────────── */
 function exportData() {
   const d=new Date();
   const fname=`taches_elfort_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
-  const blob=new Blob([JSON.stringify({version:3,exportDate:todayStr(),tasks},null,2)],{type:'application/json'});
+  const data = tasks ? Object.values(tasks).map(({id,...rest})=>rest) : [];
+  const blob=new Blob([JSON.stringify({version:4,exportDate:todayStr(),tasks:data},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download=fname; a.click();
   showToast('Sauvegarde exportée : '+fname);
 }
 
-/* IMPORT */
 function importData(e) {
   const file=e.target.files[0]; if(!file)return;
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
     try {
       const data=JSON.parse(ev.target.result);
       const imported=Array.isArray(data)?data:(data.tasks||[]);
@@ -578,21 +841,33 @@ function importData(e) {
         `OK  →  REMPLACER toutes les tâches actuelles\n`+
         `Annuler  →  AJOUTER à la liste existante`
       );
-      if(replace){
-        tasks=imported;
-      } else {
-        imported.forEach(t=>{t.num=nextNum();tasks.push(t);});
+      if (replace && tasks) {
+        const batch=db.batch();
+        Object.keys(tasks).forEach(id=>batch.delete(tasksRef.doc(id)));
+        await batch.commit();
       }
-      save(); render(); showToast(imported.length+' tâche(s) importée(s)');
-    } catch(err){ alert('Fichier invalide. Vérifiez qu\'il s\'agit d\'une sauvegarde exportée depuis cette application.'); }
+      const batch2=db.batch();
+      imported.forEach(t=>{
+        const {id,...taskData}=t;
+        batch2.set(tasksRef.doc(), {
+          ...taskData,
+          createdBy: taskData.createdBy||currentUser,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      });
+      await batch2.commit();
+      showToast(imported.length+' tâche(s) importée(s)');
+    } catch(err){
+      console.error(err);
+      alert('Fichier invalide. Vérifiez qu\'il s\'agit d\'une sauvegarde exportée depuis cette application.');
+    }
     e.target.value='';
   };
   reader.readAsText(file);
 }
 
-/* ---- CONSTRUCTION DE LA FICHE HTML (partagée) ---- */
-function buildFicheHTML(idx) {
-  const t=tasks[idx];
+/* ─── Construction de la fiche HTML ──────────────────────── */
+function buildFicheHTML(t) {
   document.getElementById('print-area').innerHTML=`
 <div class="fiche">
   <div class="fiche-entete">
@@ -605,10 +880,10 @@ function buildFicheHTML(idx) {
       <div class="fiche-titre">Fiche de tâche<br>à réaliser</div>
     </div>
     <div class="fiche-entete-right">
-      <div class="fiche-ref"><b>N° tâche :</b> ${t.num}</div>
+      <div class="fiche-ref"><b>N° tâche :</b> ${escHtml(t.num)}</div>
       <div class="fiche-ref"><b>Émise le :</b> ${fmtDateLong(t.dateDem)}</div>
-      <div class="fiche-ref"><b>Demandé par :</b> ${t.demandeur}</div>
-      <div class="fiche-ref"><b>Priorité :</b> <span style="${t.prio==='Urgente'?'color:#B53A2A;font-weight:700':''}">${t.prio}</span></div>
+      <div class="fiche-ref"><b>Demandé par :</b> ${escHtml(t.demandeur)}</div>
+      <div class="fiche-ref"><b>Priorité :</b> <span style="${t.prio==='Urgente'?'color:#B53A2A;font-weight:700':''}">${escHtml(t.prio)}</span></div>
     </div>
   </div>
   <div class="fiche-urgent-banner ${t.prio==='Urgente'?'show':''}">⚠ TÂCHE URGENTE — TRAITEMENT PRIORITAIRE ⚠</div>
@@ -617,7 +892,7 @@ function buildFicheHTML(idx) {
     <div class="fiche-section-body">
       <div class="fiche-row"><div class="fiche-champ full">
         <div class="fiche-lbl">Description de la tâche</div>
-        <div class="fiche-val-desc">${t.desc}</div>
+        <div class="fiche-val-desc">${escHtml(t.desc)}</div>
       </div></div>
     </div>
   </div>
@@ -658,33 +933,29 @@ function buildFicheHTML(idx) {
 </div>`;
 }
 
-/* PRINT */
-function printTask(idx) {
-  buildFicheHTML(idx);
+/* ─── Impression ──────────────────────────────────────────── */
+function printTask(id) {
+  const t = tasks[id]; if (!t) return;
+  buildFicheHTML(t);
   window.print();
 }
 
-/* ---- CHARGEMENT DYNAMIQUE DES LIBRAIRIES PDF ---- */
+/* ─── Chargement dynamique des librairies PDF ─────────────── */
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('Impossible de charger : ' + src));
+    const s=document.createElement('script');
+    s.src=src; s.onload=resolve; s.onerror=()=>reject(new Error('Impossible de charger : '+src));
     document.head.appendChild(s);
   });
 }
 
-/* EMAIL — génère le PDF puis ouvre la messagerie */
-async function emailTask(idx) {
-  const t = tasks[idx];
+/* ─── Email avec PDF ──────────────────────────────────────── */
+async function emailTask(id) {
+  const t = tasks[id]; if (!t) return;
   const toast = document.getElementById('toast');
-
-  // Affichage d'un toast de progression
-  toast.textContent = '⏳ Génération du PDF en cours…';
-  toast.classList.add('show');
-
+  toast.textContent='⏳ Génération du PDF en cours…'; toast.classList.add('show');
   try {
-    // Chargement lazzy des librairies (une seule fois)
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   } catch(e) {
@@ -692,42 +963,25 @@ async function emailTask(idx) {
     alert('Impossible de charger les librairies PDF.\nVérifiez votre connexion internet et réessayez.');
     return;
   }
-
-  // Construction de la fiche dans le print-area
-  buildFicheHTML(idx);
+  buildFicheHTML(t);
   const printArea = document.getElementById('print-area');
-
-  // Rendu hors-écran mais visible pour html2canvas (A4 = 794px à 96dpi)
   const prev = printArea.getAttribute('style') || '';
-  printArea.style.cssText = 'display:block !important; position:fixed; top:0; left:-9999px; width:794px; background:#fff; padding:10mm 12mm;';
-
-  // Petite pause pour laisser le navigateur finaliser le rendu
-  await new Promise(r => setTimeout(r, 200));
-
+  printArea.style.cssText='display:block !important;position:fixed;top:0;left:-9999px;width:794px;background:#fff;padding:10mm 12mm;';
+  await new Promise(r=>setTimeout(r,200));
   try {
-    const canvas = await html2canvas(printArea, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      width: 794,
-      windowWidth: 794
+    const canvas=await html2canvas(printArea,{
+      scale:2, useCORS:true, allowTaint:true,
+      backgroundColor:'#ffffff', width:794, windowWidth:794
     });
-
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    const pW = 210, pH = 297;
-    const imgW = pW;
-    const imgH = Math.min((canvas.height * pW) / canvas.width, pH);
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', 0, 0, imgW, imgH);
-
-    const fname = `fiche_tache_${t.num.replace('-','_')}_${todayStr().replace(/-/g,'')}.pdf`;
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pW=210,pH=297;
+    const imgH=Math.min((canvas.height*pW)/canvas.width,pH);
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,0,pW,imgH);
+    const fname=`fiche_tache_${t.num.replace('-','_')}_${todayStr().replace(/-/g,'')}.pdf`;
     pdf.save(fname);
-
-    // Corps du courriel simple
-    const subject = encodeURIComponent(`Nouvelle tâche à réaliser — N° ${t.num}`);
-    const body = encodeURIComponent(
+    const subject=encodeURIComponent(`Nouvelle tâche à réaliser — N° ${t.num}`);
+    const body=encodeURIComponent(
 `Bonjour,
 
 Une nouvelle tâche vous a été assignée (N° ${t.num}).
@@ -737,25 +991,33 @@ Vous trouverez en pièce jointe la fiche détaillée à compléter et à retourn
 Cordialement,
 L'administration
 Lycée Polyvalent Léopold Elfort — Mana`);
-
-    // Légère pause pour que le téléchargement PDF démarre avant la redirection mailto
-    await new Promise(r => setTimeout(r, 600));
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-
+    await new Promise(r=>setTimeout(r,600));
+    window.location.href=`mailto:?subject=${subject}&body=${body}`;
     showToast('✓ PDF téléchargé — joignez-le à votre courriel');
-
   } catch(err) {
     console.error(err);
     showToast('Erreur lors de la génération du PDF');
   } finally {
-    // Remise en état du print-area
     printArea.setAttribute('style', prev);
   }
 }
 
+/* ─── Fermeture des overlays au clic extérieur ────────────── */
 document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
 document.getElementById('confirm-overlay').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
-render();
+
+/* ─── Démarrage ───────────────────────────────────────────── */
+if (currentUser) {
+  updateUserDisplay();
+  document.getElementById('user-modal-overlay').classList.remove('open');
+  if (!CONFIG_OK) { showConfigError(); }
+  else { startSync(); }
+} else {
+  // La modale utilisateur est déjà ouverte par défaut dans le HTML
+  setSyncStatus('loading');
+}
+// Rendu initial pour afficher les statistiques vides pendant le chargement
+renderStats();
 </script>
 </body>
 </html>
