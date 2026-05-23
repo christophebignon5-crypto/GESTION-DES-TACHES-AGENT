@@ -603,7 +603,7 @@ function showConfigError() {
 function startSync() {
   if (!CONFIG_OK || !tasksRef) { showConfigError(); return; }
   setSyncStatus('loading');
-  tasksRef.orderBy('createdAt', 'asc').onSnapshot(snapshot => {
+  tasksRef.onSnapshot(snapshot => {
     tasks = {};
     snapshot.forEach(doc => { tasks[doc.id] = { id: doc.id, ...doc.data() }; });
     setSyncStatus('ok');
